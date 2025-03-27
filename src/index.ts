@@ -1,10 +1,15 @@
 import {MediaOrganizer} from './utils/fileReader';
 
 const directoryPath = 'C:/Users/adson_disparopro/Documents/programacao/estudo/midias-teste'
-
+const organizer = new MediaOrganizer(directoryPath);
 
 async function  main() {
 
-  const organizar = new MediaOrganizer(directoryPath);
-  console.log(organizar.readDirectory())
+  try {
+    const extensions = await organizer.getFileExtensions();
+  console.log(extensions)
+} catch(error) {
+  console.error(error)
 }
+}
+main()
