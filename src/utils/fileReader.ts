@@ -10,6 +10,10 @@ export class MediaOrganizer {
     }
 
     this.directoryPath = path.resolve(directoryPath);
+
+    fs.access(this.directoryPath).catch(() => {
+      throw new Error(`O diretório ${this.directoryPath} não existe`);
+    })
   }
 
   async readDirectory(): Promise<string[]> {
@@ -41,9 +45,11 @@ export class MediaOrganizer {
     const folders = this.getFolderMapping(); 
 
     try {
+      const files = await this.readDirectory();
+      const extensions = files.map(file => path.extname(file));
 
       for (const [folderName, exts] of Object.entries(folders)) {
-        const hasFiles = (await this.getFileExtensions()).some(ext => exts.includes(ext))
+        const hasFiles = extensions.some(ext => exts.includes(ext))
 
         if (hasFiles) {
           const folderPath = path.join(this.directoryPath, folderName.charAt(0).toUpperCase() + folderName.slice(1));
@@ -54,8 +60,8 @@ export class MediaOrganizer {
             console.log(`Pasta ${folderPath} criada com sucesso`);
           }
         }
-
       }
+
     } catch (error) {
       throw new Error(`Erro ao criar pastas: ${error}`);
     }
