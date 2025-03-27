@@ -77,32 +77,45 @@ export class MediaOrganizer {
       const files = await this.readDirectory();
 
       for (const file of files) {
+        const sanitizedFile = path.basename(file)
         const fileExtension = path.extname(file);
-        const fileName = path.basename(file);
 
-        for (const [folderName, exts] of Object.entries(folders)) {
-          if (exts.includes(fileExtension)) {
-            const folderPath = path.join(this.directoryPath, folderName.charAt(0).toUpperCase() + folderName.slice(1));
-            let destinationPath = path.join(folderPath, fileName);
+        const folderName = Object.keys(folders).find(key => folders[key as keyof typeof folders].includes(fileExtension))
 
-            let copyIndex = 1;
-            while (await this.fileExists(destinationPath)) {
-              const baseName = path.basename(file, fileExtension);
-              destinationPath = path.join(folderPath, `${baseName}(${copyIndex})${fileExtension}`);
-              const [name, extension] = fileName.split('.');
-              destinationPath = path.join(folderPath, `${name}_copy(${copyIndex}).${extension}`);
-              copyIndex++;
-            }
+        if (folderName) {
+          const folderPath = path.join(this.directoryPath, folderName.charAt(0).toUpperCase() + folderName.slice(1));
+          let destinationPath = path.join(folderPath, sanitizedFile);
 
-            await fs.rename(path.join(this.directoryPath, fileName), destinationPath);
-            console.log(`Arquivo ${fileName} movido para ${destinationPath}`);
-            break
+          if (!destinationPath.startsWith(this.directoryPath)) {
+            throw new Error('Tentativa de acesso fora do diretório');
           }
+
+          destinationPath = await this.getUniqueFilePath(destinationPath)
+
+          await fs.rename(path.join(this.directoryPath, sanitizedFile), destinationPath);
+          console.log(`Arquivo ${sanitizedFile} movido para ${destinationPath}`);
         }
+
       }
     } catch (error) {
       throw new Error(`Erro ao mover arquivos: ${error}`);
     }
+  }
+
+  private async getUniqueFilePath(filePath: string): Promise<string> {
+    let uniquePath = filePath;
+    let copyIndex = 1;
+
+    while (await this.fileExists(uniquePath)) {
+      const dir = path.dirname(filePath);
+      const ext = path.extname(filePath);
+      const baseName = path.basename(filePath, ext);
+
+      uniquePath = path.join(dir, `${baseName}_copy(${copyIndex})${ext}`);
+      copyIndex++;
+    }
+
+    return uniquePath;
   }
 
   private async fileExists(filePath: string): Promise<boolean> {
