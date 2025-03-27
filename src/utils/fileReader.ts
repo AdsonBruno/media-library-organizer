@@ -94,6 +94,8 @@ export class MediaOrganizer {
             console.log(`Arquivo ${sanitizedFile} movido para ${destinationPath}`);
           }
         }
+
+        await this.deleteFolderEmptyFolders();
       },
       'Erro ao mover arquivos'
     )
@@ -154,6 +156,28 @@ export class MediaOrganizer {
     } catch {
       await fs.mkdir(folderPath);
       console.log(`Pasta ${folderPath} criada com sucesso`);
+    }
+  }
+
+  private async deleteFolderEmptyFolders(): Promise<void> {
+    const folders = Object.keys(this.getFolderMapping()).map(folder => this.getFolderPath(folder));
+
+    for (const folderPath of folders) {
+      await this.handlerAsync(
+        async () => {
+          
+          if (await this.fileExists(folderPath)) {
+            const files = await fs.readdir(folderPath);
+            
+            if (files.length === 0) {
+              await fs.rmdir(folderPath);
+              console.log(`Pasta ${folderPath} deletada com sucesso`);
+            }
+          }
+
+        },
+        `Erro ao deletar pasta ${folderPath}`
+      )
     }
   }
 }
