@@ -17,87 +17,86 @@ export class MediaOrganizer {
   }
 
   async readDirectory(): Promise<string[]> {
-    try {
-      const stats = await fs.stat(this.directoryPath);
+    
+    return this.handlerAsync(
+      async () => {
+        const stats = await fs.stat(this.directoryPath);
 
-      if (!stats.isDirectory()) {
-        throw new Error('O caminho informado não é um diretório');
-      }
+        if (!stats.isDirectory()) {
+          throw new Error('O caminho informado não é um diretório');
+        }
 
-      const files = await fs.readdir(this.directoryPath);
-      return files;
-    } catch (error) {
-      throw new Error(`Erro ao ler diretório: ${error}`);
-    }
+        const files = await fs.readdir(this.directoryPath);
+        return files;
+      },
+      `Erro ao ler diretório ${this.directoryPath}`
+    )
   }
 
   async getFileExtensions(): Promise<string[]> {
-    try {
-      const files = await this.readDirectory();
-      const extensions = files.map(file => path.extname(file))
-      return extensions;
-    } catch (error) {
-      throw new Error(`Erro ao obter extensões dos arquivos: ${error}`);
-    }
+
+    return this.handlerAsync(
+      async () => {
+        const files = await this.readDirectory();
+        const extensions = files.map(file => path.extname(file));
+        return extensions;
+      }, 
+      'Erro ao obter extensões dos arquivos'
+    )
   }
 
   async createFolders(): Promise<void> {
     const folders = this.getFolderMapping(); 
 
-    try {
-      const files = await this.readDirectory();
-      const extensions = files.map(file => path.extname(file));
+    return this.handlerAsync(
+      async () => {
+        const files = await this.readDirectory();
+        const extensions = files.map(file => path.extname(file));
 
-      for (const [folderName, exts] of Object.entries(folders)) {
-        const hasFiles = extensions.some(ext => exts.includes(ext))
+        for (const [folderName, exts] of Object.entries(folders)) {
+          if (this.hasFilesWithExtensions(exts, extensions)) {
+            const folderPath = this.getFolderPath(folderName);
 
-        if (hasFiles) {
-          const folderPath = path.join(this.directoryPath, folderName.charAt(0).toUpperCase() + folderName.slice(1));
-          try {
-            await fs.access(folderPath);
-          } catch {
-            await fs.mkdir(folderPath);
+            await this.createFolderIfNotExists(folderPath);
             console.log(`Pasta ${folderPath} criada com sucesso`);
           }
         }
-      }
-
-    } catch (error) {
-      throw new Error(`Erro ao criar pastas: ${error}`);
-    }
+      },
+      'Erro ao criar pastas'
+    )
 
   }
 
   async moveFiles(): Promise<void> {
     const folders = this.getFolderMapping();
 
-    try {
-      const files = await this.readDirectory();
+    await this.handlerAsync(
+      async () => {
+        const files = await this.readDirectory();
 
-      for (const file of files) {
-        const sanitizedFile = path.basename(file)
-        const fileExtension = path.extname(file);
+        for (const file of files) {
+          const sanitizedFile = path.basename(file);
+          const fileExtension = path.extname(file);
 
-        const folderName = Object.keys(folders).find(key => folders[key as keyof typeof folders].includes(fileExtension))
+          const folderName = Object.keys(folders).find(key => folders[key as keyof typeof folders].includes(fileExtension));
 
-        if (folderName) {
-          const folderPath = path.join(this.directoryPath, folderName.charAt(0).toUpperCase() + folderName.slice(1));
-          let destinationPath = path.join(folderPath, sanitizedFile);
+          if (folderName) {
+            const folderPath = this.getFolderPath(folderName);
+            let destinationPath = path.join(folderPath, sanitizedFile);
 
-          if (!destinationPath.startsWith(this.directoryPath)) {
-            throw new Error('Tentativa de acesso fora do diretório');
+            if (!destinationPath.startsWith(this.directoryPath)) {
+              throw new Error('Tentativa de acesso fora do diretório');
+            }
+
+            destinationPath = await this.getUniqueFilePath(destinationPath);
+
+            await fs.rename(path.join(this.directoryPath, sanitizedFile), destinationPath);
+            console.log(`Arquivo ${sanitizedFile} movido para ${destinationPath}`);
           }
-
-          destinationPath = await this.getUniqueFilePath(destinationPath)
-
-          await fs.rename(path.join(this.directoryPath, sanitizedFile), destinationPath);
-          console.log(`Arquivo ${sanitizedFile} movido para ${destinationPath}`);
         }
-
-      }
-    } catch (error) {
-      throw new Error(`Erro ao mover arquivos: ${error}`);
-    }
+      },
+      'Erro ao mover arquivos'
+    )
   }
 
   private async getUniqueFilePath(filePath: string): Promise<string> {
@@ -130,6 +129,31 @@ export class MediaOrganizer {
       audio: ['.mp3', '.wav', '.flac'],
       image: ['.jpg', '.jpeg', '.png', '.gif'],
       video: ['.mp4', '.avi', '.mov', '.mkv']
+    }
+  }
+
+  private async handlerAsync<T>(operation: () => Promise<T>, errorMessage: string): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      throw new Error(`${errorMessage}: ${error}`);
+    }
+  }
+
+  private hasFilesWithExtensions(extensions: string[], fileExtensions: string[]): boolean {
+    return fileExtensions.some(ext => extensions.includes(ext));
+  }
+
+  private getFolderPath(folderName: string): string {
+    return path.join(this.directoryPath, folderName.charAt(0).toUpperCase() + folderName.slice(1));
+  }
+
+  private async createFolderIfNotExists(folderPath: string): Promise<void> {
+    try {
+      await fs.access(folderPath);
+    } catch {
+      await fs.mkdir(folderPath);
+      console.log(`Pasta ${folderPath} criada com sucesso`);
     }
   }
 }
