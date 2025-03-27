@@ -38,11 +38,7 @@ export class MediaOrganizer {
   }
 
   async createFolders(): Promise<void> {
-    const folders = {
-      audio: ['.mp3', '.wav', '.flac'],
-      image: ['.jpg', '.jpeg', '.png', '.gif'],
-      video: ['.mp4', '.avi', '.mov', '.mkv']
-    };
+    const folders = this.getFolderMapping(); 
 
     try {
 
@@ -67,11 +63,7 @@ export class MediaOrganizer {
   }
 
   async moveFiles(): Promise<void> {
-    const folders = {
-      audio: ['.mp3', '.wav', '.flac'],
-      image: ['.jpg', '.jpeg', '.png', '.gif'],
-      video: ['.mp4', '.avi', '.mov', '.mkv']
-    }
+    const folders = this.getFolderMapping();
 
     try {
       const files = await this.readDirectory();
@@ -124,6 +116,14 @@ export class MediaOrganizer {
       return true;
     } catch {
       return false
+    }
+  }
+
+  private getFolderMapping(): Record<string, string[]> {
+    return {
+      audio: ['.mp3', '.wav', '.flac'],
+      image: ['.jpg', '.jpeg', '.png', '.gif'],
+      video: ['.mp4', '.avi', '.mov', '.mkv']
     }
   }
 }
