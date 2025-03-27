@@ -1,4 +1,4 @@
-import {promises as fs} from 'fs';
+import { promises as fs } from 'fs';
 import * as path from 'path';
 
 export class MediaOrganizer {
@@ -12,17 +12,17 @@ export class MediaOrganizer {
     this.directoryPath = path.resolve(directoryPath);
   }
 
-   async readDirectory(): Promise<string[]> {
+  async readDirectory(): Promise<string[]> {
     try {
       const stats = await fs.stat(this.directoryPath);
 
-      if(!stats.isDirectory()) {
+      if (!stats.isDirectory()) {
         throw new Error('O caminho informado não é um diretório');
       }
 
       const files = await fs.readdir(this.directoryPath);
       return files;
-    } catch (error ) {
+    } catch (error) {
       throw new Error(`Erro ao ler diretório: ${error}`);
     }
   }
@@ -66,4 +66,51 @@ export class MediaOrganizer {
 
   }
 
+  async moveFiles(): Promise<void> {
+    const folders = {
+      audio: ['.mp3', '.wav', '.flac'],
+      image: ['.jpg', '.jpeg', '.png', '.gif'],
+      video: ['.mp4', '.avi', '.mov', '.mkv']
+    }
+
+    try {
+      const files = await this.readDirectory();
+
+      for (const file of files) {
+        const fileExtension = path.extname(file);
+        const fileName = path.basename(file);
+
+        for (const [folderName, exts] of Object.entries(folders)) {
+          if (exts.includes(fileExtension)) {
+            const folderPath = path.join(this.directoryPath, folderName.charAt(0).toUpperCase() + folderName.slice(1));
+            let destinationPath = path.join(folderPath, fileName);
+
+            let copyIndex = 1;
+            while (await this.fileExists(destinationPath)) {
+              const baseName = path.basename(file, fileExtension);
+              destinationPath = path.join(folderPath, `${baseName}(${copyIndex})${fileExtension}`);
+              const [name, extension] = fileName.split('.');
+              destinationPath = path.join(folderPath, `${name}_copy(${copyIndex}).${extension}`);
+              copyIndex++;
+            }
+
+            await fs.rename(path.join(this.directoryPath, fileName), destinationPath);
+            console.log(`Arquivo ${fileName} movido para ${destinationPath}`);
+            break
+          }
+        }
+      }
+    } catch (error) {
+      throw new Error(`Erro ao mover arquivos: ${error}`);
+    }
+  }
+
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch {
+      return false
+    }
+  }
 }

@@ -11,5 +11,8 @@ async function main() {
   } catch (error) {
     console.error(error)
   }
+
+  await organizer.moveFiles()
+  console.log('Arquivos movidos com sucesso')
 }
 main()
